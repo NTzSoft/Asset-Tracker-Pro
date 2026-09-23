@@ -1,0 +1,8 @@
+{
+  "name": "Gold & Asset Tracker",
+  "description": "Dashboard for tracking world gold prices (XAU/USD), Thai gold association prices, major cryptocurrencies (BTC, ETH, BNB, SOL), and searchable/pinnable Stocks, Mutual Funds, and ETFs in real-time.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
