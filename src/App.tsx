@@ -33,6 +33,8 @@ import {
 import { Chart as ChartJS, registerables } from 'chart.js';
 import { SecuritiesHub } from './components/SecuritiesHub';
 import { CryptoHub } from './components/CryptoHub';
+import { PWAInstallButton, PWAMobileBanner } from './components/PWAInstallPrompt';
+import { OfflineIndicator } from './components/OfflineIndicator';
 import { INITIAL_SECURITIES } from './data/securities';
 
 ChartJS.register(...registerables);
@@ -971,6 +973,9 @@ export default function App() {
                 </div>
               </div>
 
+              {/* PWA Install Button */}
+              <PWAInstallButton variant="header" />
+
               <button
                 onClick={() => fetchLiveData(true)}
                 disabled={isRefreshing}
@@ -1825,6 +1830,10 @@ export default function App() {
             </div>
           </div>
         </footer>
+
+        {/* PWA Mobile Quick Install Banner & Offline Toast */}
+        <PWAMobileBanner />
+        <OfflineIndicator />
 
       </div>
     </div>

@@ -1,0 +1,66 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0b1120" />
+      <stop offset="50%" stop-color="#020617" />
+      <stop offset="100%" stop-color="#0f172a" />
+    </linearGradient>
+    <linearGradient id="goldGrad1" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#fef08a" />
+      <stop offset="35%" stop-color="#f59e0b" />
+      <stop offset="70%" stop-color="#d97706" />
+      <stop offset="100%" stop-color="#b45309" />
+    </linearGradient>
+    <linearGradient id="goldGrad2" x1="0%" y1="100%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#fbbf24" />
+      <stop offset="50%" stop-color="#fef08a" />
+      <stop offset="100%" stop-color="#f59e0b" />
+    </linearGradient>
+    <linearGradient id="chartGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#10b981" />
+      <stop offset="50%" stop-color="#34d399" />
+      <stop offset="100%" stop-color="#38bdf8" />
+    </linearGradient>
+    <filter id="shadow" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="0" dy="8" stdDeviation="12" flood-color="#000000" flood-opacity="0.6" />
+    </filter>
+  </defs>
+
+  <!-- Full bleed background without rounded corners for maskable safe zone -->
+  <rect width="512" height="512" fill="url(#bgGrad)" />
+
+  <!-- Centered safe-zone group scaled to ~75% inside 512x512 -->
+  <g transform="translate(64, 64) scale(0.75)">
+    <!-- Ambient Glow circle in background -->
+    <circle cx="256" cy="240" r="160" fill="#f59e0b" opacity="0.15" />
+
+    <!-- Subtle Chart Grid Lines -->
+    <g opacity="0.15" stroke="#94a3b8" stroke-width="2" stroke-dasharray="6,6">
+      <line x1="80" y1="140" x2="432" y2="140" />
+      <line x1="80" y1="220" x2="432" y2="220" />
+      <line x1="80" y1="300" x2="432" y2="300" />
+      <line x1="80" y1="380" x2="432" y2="380" />
+    </g>
+
+    <!-- Gold Ingot Graphic -->
+    <g filter="url(#shadow)" transform="translate(0, 10)">
+      <path d="M140 330 L372 330 L400 375 L112 375 Z" fill="#92400e" opacity="0.9" />
+      <path d="M140 330 L170 250 L342 250 L372 330 Z" fill="url(#goldGrad1)" />
+      <path d="M170 250 L200 200 L312 200 L342 250 Z" fill="url(#goldGrad2)" />
+      <path d="M140 330 L170 250 L200 200 L175 270 Z" fill="#fef08a" opacity="0.4" />
+      <text x="256" y="295" font-family="system-ui, -apple-system, sans-serif" font-weight="900" font-size="22" fill="#78350f" text-anchor="middle" letter-spacing="3">GOLD 99.99</text>
+    </g>
+
+    <!-- Rising Dynamic Financial Line Chart -->
+    <path d="M96 340 Q160 310 210 270 T320 220 T416 130" fill="none" stroke="url(#chartGrad)" stroke-width="12" stroke-linecap="round" />
+    
+    <circle cx="210" cy="270" r="7" fill="#34d399" stroke="#ffffff" stroke-width="2" />
+    <circle cx="320" cy="220" r="7" fill="#34d399" stroke="#ffffff" stroke-width="2" />
+    
+    <circle cx="416" cy="130" r="14" fill="#38bdf8" opacity="0.35" />
+    <circle cx="416" cy="130" r="9" fill="#38bdf8" stroke="#ffffff" stroke-width="3" />
+
+    <path d="M430 80 Q430 95 445 95 Q430 95 430 110 Q430 95 415 95 Q430 95 430 80" fill="#fef08a" />
+    <path d="M100 170 Q100 180 110 180 Q100 180 100 190 Q100 180 90 180 Q100 180 100 170" fill="#fef08a" />
+  </g>
+</svg>
