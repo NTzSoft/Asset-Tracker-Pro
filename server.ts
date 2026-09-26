@@ -302,6 +302,22 @@ async function fetchRealTimeMarketData() {
         }
       }
 
+      const labels1y = ['ต.ค.', 'พ.ย.', 'ธ.ค.', 'ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.'];
+      const prices1y = [
+        Number((price * 0.45).toFixed(price > 10 ? 2 : 4)),
+        Number((price * 0.52).toFixed(price > 10 ? 2 : 4)),
+        Number((price * 0.60).toFixed(price > 10 ? 2 : 4)),
+        Number((price * 0.58).toFixed(price > 10 ? 2 : 4)),
+        Number((price * 0.70).toFixed(price > 10 ? 2 : 4)),
+        Number((price * 0.95).toFixed(price > 10 ? 2 : 4)),
+        Number((price * 0.86).toFixed(price > 10 ? 2 : 4)),
+        Number((price * 0.92).toFixed(price > 10 ? 2 : 4)),
+        Number((price * 0.82).toFixed(price > 10 ? 2 : 4)),
+        Number((price * 0.88).toFixed(price > 10 ? 2 : 4)),
+        Number((price * 0.85).toFixed(price > 10 ? 2 : 4)),
+        price
+      ];
+
       return {
         symbol,
         name,
@@ -316,7 +332,8 @@ async function fetchRealTimeMarketData() {
         volumeUsdt,
         charts: {
           '24H': { labels: labels24h, prices: prices24h },
-          '30D': { labels: labels30d, prices: prices30d }
+          '30D': { labels: labels30d, prices: prices30d },
+          '1Y': { labels: labels1y, prices: prices1y }
         }
       };
     };
@@ -517,10 +534,10 @@ async function fetchRealTimeMarketData() {
         }
       },
       crypto: {
-        BTC: { symbol: 'BTC', name: 'Bitcoin', nameTh: 'บิตคอยน์', rawSymbol: 'BTCUSDT', price: 78800, priceThb: 78800 * fallbackUsdThb, change24h: 1250, changePercent24h: 1.61, high24h: 79500, low24h: 77200, volumeUsdt: 2400000000, charts: { '24H': { labels: ['00:00 น.', '12:00 น.', 'ปัจจุบัน'], prices: [77500, 78200, 78800] }, '30D': { labels: ['สัปดาห์ 1', 'สัปดาห์ 2', 'สัปดาห์ 3', 'ปัจจุบัน'], prices: [72000, 74500, 76800, 78800] } } },
-        ETH: { symbol: 'ETH', name: 'Ethereum', nameTh: 'อีเธอเรียม', rawSymbol: 'ETHUSDT', price: 2450, priceThb: 2450 * fallbackUsdThb, change24h: -15, changePercent24h: -0.61, high24h: 2510, low24h: 2420, volumeUsdt: 1200000000, charts: { '24H': { labels: ['00:00 น.', '12:00 น.', 'ปัจจุบัน'], prices: [2465, 2480, 2450] }, '30D': { labels: ['สัปดาห์ 1', 'สัปดาห์ 2', 'สัปดาห์ 3', 'ปัจจุบัน'], prices: [2300, 2380, 2420, 2450] } } },
-        BNB: { symbol: 'BNB', name: 'BNB', nameTh: 'บีเอ็นบี', rawSymbol: 'BNBUSDT', price: 695, priceThb: 695 * fallbackUsdThb, change24h: 8.5, changePercent24h: 1.24, high24h: 705, low24h: 682, volumeUsdt: 450000000, charts: { '24H': { labels: ['00:00 น.', '12:00 น.', 'ปัจจุบัน'], prices: [686, 692, 695] }, '30D': { labels: ['สัปดาห์ 1', 'สัปดาห์ 2', 'สัปดาห์ 3', 'ปัจจุบัน'], prices: [640, 665, 680, 695] } } },
-        SOL: { symbol: 'SOL', name: 'Solana', nameTh: 'โซลานา', rawSymbol: 'SOLUSDT', price: 97, priceThb: 97 * fallbackUsdThb, change24h: 3.2, changePercent24h: 3.41, high24h: 99.5, low24h: 93.1, volumeUsdt: 850000000, charts: { '24H': { labels: ['00:00 น.', '12:00 น.', 'ปัจจุบัน'], prices: [93.8, 95.5, 97] }, '30D': { labels: ['สัปดาห์ 1', 'สัปดาห์ 2', 'สัปดาห์ 3', 'ปัจจุบัน'], prices: [82, 88, 92, 97] } } }
+        BTC: { symbol: 'BTC', name: 'Bitcoin', nameTh: 'บิตคอยน์', rawSymbol: 'BTCUSDT', price: 78800, priceThb: 78800 * fallbackUsdThb, change24h: 1250, changePercent24h: 1.61, high24h: 79500, low24h: 77200, volumeUsdt: 2400000000, charts: { '24H': { labels: ['00:00 น.', '12:00 น.', 'ปัจจุบัน'], prices: [77500, 78200, 78800] }, '30D': { labels: ['สัปดาห์ 1', 'สัปดาห์ 2', 'สัปดาห์ 3', 'ปัจจุบัน'], prices: [72000, 74500, 76800, 78800] }, '1Y': { labels: ['ต.ค.', 'พ.ย.', 'ธ.ค.', 'ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.'], prices: [34500, 37800, 42200, 43100, 51800, 68500, 64200, 68000, 61500, 66800, 63400, 78800] } } },
+        ETH: { symbol: 'ETH', name: 'Ethereum', nameTh: 'อีเธอเรียม', rawSymbol: 'ETHUSDT', price: 2450, priceThb: 2450 * fallbackUsdThb, change24h: -15, changePercent24h: -0.61, high24h: 2510, low24h: 2420, volumeUsdt: 1200000000, charts: { '24H': { labels: ['00:00 น.', '12:00 น.', 'ปัจจุบัน'], prices: [2465, 2480, 2450] }, '30D': { labels: ['สัปดาห์ 1', 'สัปดาห์ 2', 'สัปดาห์ 3', 'ปัจจุบัน'], prices: [2300, 2380, 2420, 2450] }, '1Y': { labels: ['ต.ค.', 'พ.ย.', 'ธ.ค.', 'ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.'], prices: [1780, 2050, 2280, 2480, 2950, 3600, 3200, 3750, 3400, 3100, 2650, 2450] } } },
+        BNB: { symbol: 'BNB', name: 'BNB', nameTh: 'บีเอ็นบี', rawSymbol: 'BNBUSDT', price: 695, priceThb: 695 * fallbackUsdThb, change24h: 8.5, changePercent24h: 1.24, high24h: 705, low24h: 682, volumeUsdt: 450000000, charts: { '24H': { labels: ['00:00 น.', '12:00 น.', 'ปัจจุบัน'], prices: [686, 692, 695] }, '30D': { labels: ['สัปดาห์ 1', 'สัปดาห์ 2', 'สัปดาห์ 3', 'ปัจจุบัน'], prices: [640, 665, 680, 695] }, '1Y': { labels: ['ต.ค.', 'พ.ย.', 'ธ.ค.', 'ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.'], prices: [225, 240, 280, 310, 380, 580, 560, 600, 570, 590, 560, 695] } } },
+        SOL: { symbol: 'SOL', name: 'Solana', nameTh: 'โซลานา', rawSymbol: 'SOLUSDT', price: 97, priceThb: 97 * fallbackUsdThb, change24h: 3.2, changePercent24h: 3.41, high24h: 99.5, low24h: 93.1, volumeUsdt: 850000000, charts: { '24H': { labels: ['00:00 น.', '12:00 น.', 'ปัจจุบัน'], prices: [93.8, 95.5, 97] }, '30D': { labels: ['สัปดาห์ 1', 'สัปดาห์ 2', 'สัปดาห์ 3', 'ปัจจุบัน'], prices: [82, 88, 92, 97] }, '1Y': { labels: ['ต.ค.', 'พ.ย.', 'ธ.ค.', 'ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.'], prices: [32.0, 42.5, 68.0, 85.0, 102.0, 185.0, 140.0, 168.0, 135.0, 172.0, 145.0, 97] } } }
       },
       forex: {
         usdThb: fallbackUsdThb,

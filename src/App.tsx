@@ -56,6 +56,7 @@ export interface CryptoAsset {
   charts: {
     '24H': { labels: string[]; prices: number[] };
     '30D': { labels: string[]; prices: number[] };
+    '1Y': { labels: string[]; prices: number[] };
   };
 }
 
@@ -175,6 +176,10 @@ const initialMarketData: MarketData = {
         '30D': {
           labels: ['1 ส.ค.', '7 ส.ค.', '14 ส.ค.', '21 ส.ค.', 'วันนี้'],
           prices: [72500, 74800, 77200, 80500, 78900]
+        },
+        '1Y': {
+          labels: ['ต.ค.', 'พ.ย.', 'ธ.ค.', 'ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.'],
+          prices: [34500, 37800, 42200, 43100, 51800, 68500, 64200, 68000, 61500, 66800, 63400, 78900]
         }
       }
     },
@@ -198,6 +203,10 @@ const initialMarketData: MarketData = {
         '30D': {
           labels: ['1 ส.ค.', '7 ส.ค.', '14 ส.ค.', '21 ส.ค.', 'วันนี้'],
           prices: [2280, 2350, 2410, 2520, 2458]
+        },
+        '1Y': {
+          labels: ['ต.ค.', 'พ.ย.', 'ธ.ค.', 'ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.'],
+          prices: [1780, 2050, 2280, 2480, 2950, 3600, 3200, 3750, 3400, 3100, 2650, 2458]
         }
       }
     },
@@ -221,6 +230,10 @@ const initialMarketData: MarketData = {
         '30D': {
           labels: ['1 ส.ค.', '7 ส.ค.', '14 ส.ค.', '21 ส.ค.', 'วันนี้'],
           prices: [620, 645, 670, 715, 695.5]
+        },
+        '1Y': {
+          labels: ['ต.ค.', 'พ.ย.', 'ธ.ค.', 'ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.'],
+          prices: [225, 240, 280, 310, 380, 580, 560, 600, 570, 590, 560, 695.5]
         }
       }
     },
@@ -244,6 +257,10 @@ const initialMarketData: MarketData = {
         '30D': {
           labels: ['1 ส.ค.', '7 ส.ค.', '14 ส.ค.', '21 ส.ค.', 'วันนี้'],
           prices: [88.0, 92.5, 96.0, 104.5, 97.1]
+        },
+        '1Y': {
+          labels: ['ต.ค.', 'พ.ย.', 'ธ.ค.', 'ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.'],
+          prices: [32.0, 42.5, 68.0, 85.0, 102.0, 185.0, 140.0, 168.0, 135.0, 172.0, 145.0, 97.1]
         }
       }
     }
@@ -662,6 +679,24 @@ export default function App() {
           const l24 = t && !isNaN(parseFloat(t.lowPrice)) ? parseFloat(t.lowPrice) : p * 0.98;
           const v = t && !isNaN(parseFloat(t.quoteVolume || t.volume)) ? parseFloat(t.quoteVolume || t.volume) : 500000000;
 
+          const hist1Y = initialMarketData.crypto[sym]?.charts['1Y'] || {
+            labels: ['ต.ค.', 'พ.ย.', 'ธ.ค.', 'ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.'],
+            prices: [
+              Math.round(p * 0.45 * 100) / 100,
+              Math.round(p * 0.52 * 100) / 100,
+              Math.round(p * 0.60 * 100) / 100,
+              Math.round(p * 0.58 * 100) / 100,
+              Math.round(p * 0.70 * 100) / 100,
+              Math.round(p * 0.95 * 100) / 100,
+              Math.round(p * 0.86 * 100) / 100,
+              Math.round(p * 0.92 * 100) / 100,
+              Math.round(p * 0.82 * 100) / 100,
+              Math.round(p * 0.88 * 100) / 100,
+              Math.round(p * 0.85 * 100) / 100,
+              p
+            ]
+          };
+
           return {
             symbol: sym,
             name,
@@ -682,6 +717,10 @@ export default function App() {
               '30D': {
                 labels: ['สัปดาห์ 1', 'สัปดาห์ 2', 'สัปดาห์ 3', 'ปัจจุบัน'],
                 prices: [p * 0.94, p * 0.97, p * 0.96, p]
+              },
+              '1Y': {
+                labels: hist1Y.labels,
+                prices: hist1Y.prices.slice(0, -1).concat([p])
               }
             }
           };

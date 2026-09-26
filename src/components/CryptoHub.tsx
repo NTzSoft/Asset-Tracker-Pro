@@ -21,7 +21,7 @@ import {
   ExternalLink,
   Coins
 } from 'lucide-react';
-import { CryptoAsset, INITIAL_CRYPTO_LIST, EXTENDED_CRYPTO_CATALOG, createCustomCrypto } from '../data/crypto';
+import { CryptoAsset, INITIAL_CRYPTO_LIST, EXTENDED_CRYPTO_CATALOG, createCustomCrypto, generateCryptoCharts } from '../data/crypto';
 
 Chart.register(...registerables);
 
@@ -203,11 +203,12 @@ export function CryptoHub({ usdThb }: CryptoHubProps) {
         let results: any[] = [];
         const q = trimmed.toLowerCase();
 
-        // 1. First search in-memory database of all known cryptos
+        // 1. Search in-memory database of all known cryptos (instant, 0-latency, 0 network errors)
         const localMatches = allCryptos.filter(c => 
           c.symbol.toLowerCase().includes(q) || 
           c.name.toLowerCase().includes(q) || 
-          c.nameTh.toLowerCase().includes(q)
+          c.nameTh.toLowerCase().includes(q) ||
+          c.category.toLowerCase().includes(q)
         ).map(c => ({
           symbol: c.symbol,
           name: c.name,
@@ -235,35 +236,6 @@ export function CryptoHub({ usdThb }: CryptoHubProps) {
           }
         }
 
-        // 3. Direct Binance public API fallback (No 404s, works anywhere)
-        if (results.length === 0 && trimmed.length >= 2) {
-          try {
-            const bRes = await fetch(`https://api.binance.com/api/v3/ticker/24hr?symbol=${trimmed.toUpperCase()}USDT`);
-            if (bRes.ok) {
-              const bData = await bRes.json();
-              if (bData && bData.symbol) {
-                const sym = trimmed.toUpperCase();
-                const matchedLocal = allCryptos.find(c => c.symbol.toUpperCase() === sym);
-                const p = parseFloat(bData.lastPrice);
-                const cp = parseFloat(bData.priceChangePercent);
-                results.push({
-                  symbol: sym,
-                  name: matchedLocal?.name || sym,
-                  nameTh: matchedLocal?.nameTh || `เหรียญ ${sym}`,
-                  glyph: matchedLocal?.glyph || '🪙',
-                  category: matchedLocal?.category || 'Cryptocurrency',
-                  rank: matchedLocal?.rank || 99,
-                  price: !isNaN(p) ? p : 1.0,
-                  change24h: parseFloat(bData.priceChange) || 0,
-                  changePercent24h: !isNaN(cp) ? cp : 0
-                });
-              }
-            }
-          } catch {
-            // Ignore fetch failure
-          }
-        }
-
         // Combine unique results
         const combined = [...results];
         localMatches.forEach(lm => {
@@ -278,7 +250,7 @@ export function CryptoHub({ usdThb }: CryptoHubProps) {
       } finally {
         setIsSearchingApi(false);
       }
-    }, 280);
+    }, 200);
 
     return () => clearTimeout(timer);
   }, [searchQuery, allCryptos, isInternalHost]);
@@ -290,8 +262,17 @@ export function CryptoHub({ usdThb }: CryptoHubProps) {
     try {
       let newAsset: CryptoAsset | null = null;
 
-      // 1. If on internal fullstack server, try API route
-      if (isInternalHost) {
+      // 1. Check local catalog first (highest fidelity, zero network errors)
+      const existingInCatalog = allCryptos.find(c => c.symbol.toUpperCase() === symbol);
+      if (existingInCatalog) {
+        newAsset = {
+          ...existingInCatalog,
+          id: `crypto-${symbol.toLowerCase()}-${Date.now()}`
+        };
+      }
+
+      // 2. If on internal fullstack server and not in catalog, try API route
+      if (!newAsset && isInternalHost) {
         try {
           const qRes = await fetch(`/api/crypto/quote?symbol=${encodeURIComponent(symbol)}`);
           if (qRes.ok) {
@@ -315,88 +296,21 @@ export function CryptoHub({ usdThb }: CryptoHubProps) {
             };
           }
         } catch {
-          // Fall through to direct public client fetch
+          // Fall through to custom crypto generator
         }
       }
 
-      // 2. Direct client-side fetch via Binance Public API
+      // 3. Fallback to custom crypto generator
       if (!newAsset) {
-        try {
-          const [tRes, k1hRes, k1dRes] = await Promise.allSettled([
-            fetch(`https://api.binance.com/api/v3/ticker/24hr?symbol=${symbol}USDT`).then(r => r.ok ? r.json() : null),
-            fetch(`https://api.binance.com/api/v3/klines?symbol=${symbol}USDT&interval=1h&limit=24`).then(r => r.ok ? r.json() : null),
-            fetch(`https://api.binance.com/api/v3/klines?symbol=${symbol}USDT&interval=1d&limit=30`).then(r => r.ok ? r.json() : null)
-          ]);
-
-          const tData = tRes.status === 'fulfilled' ? tRes.value : null;
-          const k1h = k1hRes.status === 'fulfilled' && Array.isArray(k1hRes.value) ? k1hRes.value : [];
-          const k1d = k1dRes.status === 'fulfilled' && Array.isArray(k1dRes.value) ? k1dRes.value : [];
-
-          const price = tData && !isNaN(parseFloat(tData.lastPrice)) ? parseFloat(tData.lastPrice) : (quote.price || 1.0);
-          const change24h = tData && !isNaN(parseFloat(tData.priceChange)) ? parseFloat(tData.priceChange) : 0;
-          const changePercent24h = tData && !isNaN(parseFloat(tData.priceChangePercent)) ? parseFloat(tData.priceChangePercent) : (quote.changePercent24h || 0);
-          const high24h = tData && !isNaN(parseFloat(tData.highPrice)) ? parseFloat(tData.highPrice) : price * 1.02;
-          const low24h = tData && !isNaN(parseFloat(tData.lowPrice)) ? parseFloat(tData.lowPrice) : price * 0.98;
-          const volumeUsdt = tData && !isNaN(parseFloat(tData.quoteVolume || tData.volume)) ? parseFloat(tData.quoteVolume || tData.volume) : 50000000;
-
-          const labels24h: string[] = [];
-          const prices24h: number[] = [];
-          if (k1h.length > 0) {
-            k1h.forEach((k: any) => {
-              const d = new Date(k[0]);
-              labels24h.push(`${String(d.getHours()).padStart(2, '0')}:00 น.`);
-              prices24h.push(parseFloat(k[4]));
-            });
-          } else {
-            labels24h.push('00:00 น.', '06:00 น.', '12:00 น.', '18:00 น.', 'ปัจจุบัน');
-            prices24h.push(price - change24h, price - (change24h * 0.5), price + (change24h * 0.2), price - (change24h * 0.1), price);
-          }
-
-          const labels30d: string[] = [];
-          const prices30d: number[] = [];
-          if (k1d.length > 0) {
-            k1d.forEach((k: any) => {
-              const d = new Date(k[0]);
-              labels30d.push(`${d.getDate()} ${d.toLocaleString('th-TH', { month: 'short' })}`);
-              prices30d.push(parseFloat(k[4]));
-            });
-          } else {
-            labels30d.push('สัปดาห์ 1', 'สัปดาห์ 2', 'สัปดาห์ 3', 'ปัจจุบัน');
-            prices30d.push(price * 0.94, price * 0.97, price * 0.96, price);
-          }
-
-          newAsset = {
-            id: `crypto-${symbol.toLowerCase()}-${Date.now()}`,
-            symbol,
-            name: quote.name || symbol,
-            nameTh: quote.nameTh || `เหรียญ ${symbol}`,
-            glyph: quote.glyph || '🪙',
-            category: quote.category || 'Cryptocurrency',
-            rank: quote.rank || 99,
-            price,
-            change24h,
-            changePercent24h,
-            high24h,
-            low24h,
-            volumeUsdt,
-            description: `สินทรัพย์คริปโต ${symbol} ดึงข้อมูลสดจากตลาด`,
-            charts: {
-              '24H': { labels: labels24h, prices: prices24h },
-              '30D': { labels: labels30d, prices: prices30d },
-              '1Y': { labels: ['Q1', 'Q2', 'Q3', 'Q4'], prices: [price * 0.7, price * 0.85, price * 0.95, price] }
-            }
-          };
-        } catch {
-          newAsset = createCustomCrypto({
-            symbol,
-            name: quote.name,
-            nameTh: quote.nameTh,
-            glyph: quote.glyph || '🪙',
-            category: quote.category || 'Cryptocurrency',
-            price: quote.price || 1.0,
-            changePercent24h: quote.changePercent24h || 2.5
-          });
-        }
+        newAsset = createCustomCrypto({
+          symbol,
+          name: quote.name || symbol,
+          nameTh: quote.nameTh,
+          glyph: quote.glyph || '🪙',
+          category: quote.category || 'Cryptocurrency',
+          price: quote.price || 1.0,
+          changePercent24h: quote.changePercent24h || 2.5
+        });
       }
 
       // Add to custom list if not existing
@@ -423,7 +337,7 @@ export function CryptoHub({ usdThb }: CryptoHubProps) {
   const handleAutoFetchQuote = async () => {
     const sym = addForm.symbol.trim().toUpperCase();
     if (!sym) {
-      setFetchError('กรุณากรอกสัญลักษณ์เหรียญ เช่น SOL, XRP, SUI, DOGE, PEPE');
+      setFetchError('กรุณากรอกสัญลักษณ์เหรียญ เช่น SOL, XRP, SUI, DOGE, PEPE, SD');
       return;
     }
 
@@ -431,9 +345,24 @@ export function CryptoHub({ usdThb }: CryptoHubProps) {
     setFetchError(null);
 
     try {
-      let fetched = false;
+      // 1. Check local catalog first (instant & reliable)
+      const matched = allCryptos.find(c => c.symbol.toUpperCase() === sym);
+      if (matched) {
+        setAddForm(prev => ({
+          ...prev,
+          name: matched.name,
+          nameTh: matched.nameTh,
+          glyph: matched.glyph,
+          category: matched.category,
+          price: String(matched.price),
+          changePercent24h: String(matched.changePercent24h),
+          description: matched.description || `เหรียญ ${sym}`
+        }));
+        showToast(`พบข้อมูลเหรียญ ${sym} ในฐานข้อมูล! ($${matched.price})`);
+        return;
+      }
 
-      // 1. If on internal server, try backend route
+      // 2. If on internal server, try backend route
       if (isInternalHost) {
         try {
           const res = await fetch(`/api/crypto/quote?symbol=${encodeURIComponent(sym)}`);
@@ -447,66 +376,18 @@ export function CryptoHub({ usdThb }: CryptoHubProps) {
               category: data.category || prev.category,
               price: data.price ? String(data.price) : prev.price,
               changePercent24h: data.changePercent24h ? String(data.changePercent24h) : prev.changePercent24h,
-              description: `เหรียญ ${sym} ตลาดสปอต Binance Real-time`
+              description: `เหรียญ ${sym} ตลาดคริปโตสากล`
             }));
             showToast(`ดึงข้อมูลสด ${sym} สำเร็จ! ($${data.price})`);
-            fetched = true;
+            return;
           }
         } catch {
           // Fall through
         }
       }
 
-      // 2. Direct client-side fetch via Binance Public API
-      if (!fetched) {
-        try {
-          const bRes = await fetch(`https://api.binance.com/api/v3/ticker/24hr?symbol=${sym}USDT`);
-          if (bRes.ok) {
-            const data = await bRes.json();
-            const p = parseFloat(data.lastPrice);
-            const cp = parseFloat(data.priceChangePercent);
-            const matched = allCryptos.find(c => c.symbol.toUpperCase() === sym);
-
-            setAddForm(prev => ({
-              ...prev,
-              name: matched?.name || prev.name || sym,
-              nameTh: matched?.nameTh || prev.nameTh || `เหรียญ ${sym}`,
-              glyph: matched?.glyph || prev.glyph || '🪙',
-              category: matched?.category || prev.category || 'Cryptocurrency',
-              price: !isNaN(p) ? String(p) : prev.price,
-              changePercent24h: !isNaN(cp) ? String(cp) : prev.changePercent24h,
-              description: `เหรียญ ${sym} ตลาดสปอต Binance Real-time`
-            }));
-            showToast(`ดึงข้อมูลสด ${sym} สำเร็จ! ($${data.lastPrice})`);
-            fetched = true;
-          }
-        } catch {
-          // Check local list
-        }
-      }
-
-      // 3. Check local database match
-      if (!fetched) {
-        const localMatch = allCryptos.find(c => c.symbol.toUpperCase() === sym);
-        if (localMatch) {
-          setAddForm(prev => ({
-            ...prev,
-            name: localMatch.name,
-            nameTh: localMatch.nameTh,
-            glyph: localMatch.glyph,
-            category: localMatch.category,
-            price: String(localMatch.price),
-            changePercent24h: String(localMatch.changePercent24h),
-            description: localMatch.description || `เหรียญ ${sym}`
-          }));
-          showToast(`พบข้อมูลเหรียญ ${sym} ในฐานข้อมูล!`);
-          fetched = true;
-        }
-      }
-
-      if (!fetched) {
-        setFetchError(`ไม่พบข้อมูลสดของ ${sym} ในตลาด สามารถกรอกราคาด้วยตนเองได้`);
-      }
+      // 3. Fallback: prompt manual fill
+      setFetchError(`ไม่พบข้อมูลสดอัตโนมัติของ ${sym} คุณสามารถระบุชื่อและราคาได้เอง`);
     } catch {
       setFetchError('ไม่สามารถดึงข้อมูลเหรียญได้ กรุณาระบุราคาด้วยตนเอง');
     } finally {
@@ -568,12 +449,9 @@ export function CryptoHub({ usdThb }: CryptoHubProps) {
     const ctx = chartCanvasRef.current.getContext('2d');
     if (!ctx) return;
 
-    const chartData = activeCrypto.charts?.[timeframe] || activeCrypto.charts?.['24H'] || {
-      labels: ['00:00', '06:00', '12:00', '18:00', 'ปัจจุบัน'],
-      prices: [activeCrypto.price * 0.98, activeCrypto.price * 0.99, activeCrypto.price * 1.01, activeCrypto.price]
-    };
-
     const isPos = activeCrypto.changePercent24h >= 0;
+    const generatedCharts = generateCryptoCharts(activeCrypto.price, isPos);
+    const chartData = activeCrypto.charts?.[timeframe] || generatedCharts[timeframe] || generatedCharts['24H'];
     const strokeColor = isPos ? '#10b981' : '#f43f5e';
     const gradientStart = isPos ? 'rgba(16, 185, 129, 0.35)' : 'rgba(244, 63, 94, 0.35)';
     const gradientEnd = 'rgba(15, 23, 42, 0.0)';
