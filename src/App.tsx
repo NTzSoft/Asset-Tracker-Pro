@@ -475,9 +475,15 @@ export default function App() {
       // 2. Direct client fallback if server route failed
       if (!marketPayload) {
         const [spotRes, thaiRes, fxRes] = await Promise.allSettled([
-          fetch('https://api.binance.com/api/v3/ticker/24hr?symbol=PAXGUSDT').then(r => r.json()),
-          fetch('https://api.chnwt.dev/thai-gold-api/latest').then(r => r.json()),
-          fetch('https://open.er-api.com/v6/latest/USD').then(r => r.json())
+          fetch('https://api.binance.com/api/v3/ticker/24hr?symbol=PAXGUSDT')
+            .then(r => r.ok ? r.json() : null)
+            .catch(() => null),
+          fetch('https://api.chnwt.dev/thai-gold-api/latest')
+            .then(r => r.ok ? r.json() : null)
+            .catch(() => null),
+          fetch('https://open.er-api.com/v6/latest/USD')
+            .then(r => r.ok ? r.json() : null)
+            .catch(() => null)
         ]);
 
         const spotData = spotRes.status === 'fulfilled' ? spotRes.value : null;
