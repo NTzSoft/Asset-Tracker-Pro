@@ -161,12 +161,12 @@ const initialMarketData: MarketData = {
       name: 'Bitcoin',
       nameTh: 'บิตคอยน์',
       rawSymbol: 'BTCUSDT',
-      price: 78900.00,
-      priceThb: 2580030.00,
-      change24h: -950.00,
-      changePercent24h: -1.20,
-      high24h: 81270.00,
-      low24h: 77850.00,
+      price: 83990.00,
+      priceThb: 2746473.00,
+      change24h: -150.00,
+      changePercent24h: -0.18,
+      high24h: 85250.00,
+      low24h: 83180.00,
       volumeUsdt: 1850000000,
       charts: {
         '24H': {
@@ -727,10 +727,10 @@ export default function App() {
         };
 
         const clientCrypto = {
-          BTC: makeClientCrypto('BTC', 'Bitcoin', 'บิตคอยน์', 'BTCUSDT', 78800),
-          ETH: makeClientCrypto('ETH', 'Ethereum', 'อีเธอเรียม', 'ETHUSDT', 2450),
+          BTC: makeClientCrypto('BTC', 'Bitcoin', 'บิตคอยน์', 'BTCUSDT', 83990),
+          ETH: makeClientCrypto('ETH', 'Ethereum', 'อีเธอเรียม', 'ETHUSDT', 2458),
           BNB: makeClientCrypto('BNB', 'BNB', 'บีเอ็นบี', 'BNBUSDT', 695),
-          SOL: makeClientCrypto('SOL', 'Solana', 'โซลานา', 'SOLUSDT', 97)
+          SOL: makeClientCrypto('SOL', 'Solana', 'โซลานา', 'SOLUSDT', 142)
         };
 
         marketPayload = {
@@ -2000,7 +2000,7 @@ export default function App() {
           {/* TAB 2: CRYPTO HUB (ระบบค้นหา ปักหมุด และดูกราฟคริปโตทุกเหรียญในตลาด) */}
           {/* ========================================================================= */}
           {mainTab === 'crypto' && (
-            <CryptoHub usdThb={data.forex.usdThb} />
+            <CryptoHub usdThb={data.forex.usdThb} liveCrypto={data.crypto} />
           )}
 
           {/* ========================================================================= */}

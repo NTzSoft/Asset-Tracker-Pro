@@ -30,9 +30,10 @@ const STORAGE_PINNED_CRYPTO_KEY = 'asset_tracker_pinned_cryptos';
 
 interface CryptoHubProps {
   usdThb: number;
+  liveCrypto?: Record<string, any>;
 }
 
-export function CryptoHub({ usdThb }: CryptoHubProps) {
+export function CryptoHub({ usdThb, liveCrypto }: CryptoHubProps) {
   // Custom cryptos saved in localStorage
   const [customCryptos, setCustomCryptos] = useState<CryptoAsset[]>(() => {
     try {
@@ -53,30 +54,135 @@ export function CryptoHub({ usdThb }: CryptoHubProps) {
     }
   });
 
-  // Master list of cryptos
+  // Live real-time ticker prices from Binance
+  const [livePrices, setLivePrices] = useState<Record<string, {
+    price: number;
+    change24h: number;
+    changePercent24h: number;
+    high24h: number;
+    low24h: number;
+    volumeUsdt: number;
+  }>>({});
+
+  // Master list of cryptos with real-time live prices merged
   const allCryptos = useMemo(() => {
-    const list = [...INITIAL_CRYPTO_LIST];
+    const list = INITIAL_CRYPTO_LIST.map(item => {
+      const sym = item.symbol.toUpperCase();
+      const live = livePrices[sym] || (liveCrypto && liveCrypto[sym]);
+      if (live) {
+        return {
+          ...item,
+          price: live.price ?? item.price,
+          change24h: live.change24h ?? item.change24h,
+          changePercent24h: live.changePercent24h ?? item.changePercent24h,
+          high24h: live.high24h ?? item.high24h,
+          low24h: live.low24h ?? item.low24h,
+          volumeUsdt: live.volumeUsdt ?? item.volumeUsdt,
+        };
+      }
+      return item;
+    });
+
     // Merge extended catalog if not already in initial
     EXTENDED_CRYPTO_CATALOG.forEach(ext => {
       if (!list.some(item => item.symbol.toUpperCase() === ext.symbol.toUpperCase())) {
-        list.push(ext);
+        const sym = ext.symbol.toUpperCase();
+        const live = livePrices[sym] || (liveCrypto && liveCrypto[sym]);
+        if (live) {
+          list.push({
+            ...ext,
+            price: live.price ?? ext.price,
+            change24h: live.change24h ?? ext.change24h,
+            changePercent24h: live.changePercent24h ?? ext.changePercent24h,
+            high24h: live.high24h ?? ext.high24h,
+            low24h: live.low24h ?? ext.low24h,
+            volumeUsdt: live.volumeUsdt ?? ext.volumeUsdt,
+          });
+        } else {
+          list.push(ext);
+        }
       }
     });
+
     // Merge custom cryptos
     customCryptos.forEach(custom => {
       const existingIdx = list.findIndex(item => item.symbol.toUpperCase() === custom.symbol.toUpperCase());
+      const sym = custom.symbol.toUpperCase();
+      const live = livePrices[sym];
+      const mergedCustom = live ? {
+        ...custom,
+        price: live.price ?? custom.price,
+        change24h: live.change24h ?? custom.change24h,
+        changePercent24h: live.changePercent24h ?? custom.changePercent24h,
+        high24h: live.high24h ?? custom.high24h,
+        low24h: live.low24h ?? custom.low24h,
+        volumeUsdt: live.volumeUsdt ?? custom.volumeUsdt,
+      } : custom;
+
       if (existingIdx >= 0) {
-        list[existingIdx] = custom;
+        list[existingIdx] = mergedCustom;
       } else {
-        list.push(custom);
+        list.push(mergedCustom);
       }
     });
+
     return list;
-  }, [customCryptos]);
+  }, [customCryptos, livePrices, liveCrypto]);
 
   // Selected crypto for viewing chart
   const [selectedSymbol, setSelectedSymbol] = useState<string>('BTC');
   const [timeframe, setTimeframe] = useState<'24H' | '30D' | '1Y'>('24H');
+
+  // Real-time polling of live Binance ticker prices for active & pinned tokens
+  useEffect(() => {
+    let isMounted = true;
+    const fetchLiveTickers = async () => {
+      try {
+        const symbolsToFetch = Array.from(new Set([
+          'BTC', 'ETH', 'BNB', 'SOL', 'XRP', 'DOGE', 'ADA', 'AVAX', 'SUI', 'PEPE', 'SHIB',
+          selectedSymbol.toUpperCase(),
+          ...pinnedIds.map(id => {
+            const found = allCryptos.find(c => c.id === id);
+            return found ? found.symbol.toUpperCase() : '';
+          }).filter(Boolean)
+        ]));
+
+        const binancePairs = symbolsToFetch.map(s => `${s}USDT`);
+        const url = `https://api.binance.com/api/v3/ticker/24hr?symbols=${encodeURIComponent(JSON.stringify(binancePairs))}`;
+        const res = await fetch(url);
+        if (!res.ok) return;
+        const data = await res.json();
+        if (Array.isArray(data) && isMounted) {
+          const updates: Record<string, any> = {};
+          data.forEach((item: any) => {
+            const sym = item.symbol.replace('USDT', '');
+            const p = parseFloat(item.lastPrice);
+            if (!isNaN(p)) {
+              updates[sym] = {
+                price: p,
+                change24h: parseFloat(item.priceChange) || 0,
+                changePercent24h: parseFloat(item.priceChangePercent) || 0,
+                high24h: parseFloat(item.highPrice) || p,
+                low24h: parseFloat(item.lowPrice) || p,
+                volumeUsdt: parseFloat(item.quoteVolume || item.volume) || 0,
+              };
+            }
+          });
+          setLivePrices(prev => ({ ...prev, ...updates }));
+        }
+      } catch (err) {
+        console.debug('Live ticker background fetch:', err);
+      }
+    };
+
+    fetchLiveTickers();
+    const interval = setInterval(fetchLiveTickers, 8000); // 8-second auto live price refresh
+
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+    };
+  }, [selectedSymbol, pinnedIds]);
 
   // Search & Filter state
   const [searchQuery, setSearchQuery] = useState('');
