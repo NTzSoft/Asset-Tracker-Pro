@@ -134,6 +134,12 @@ export const SecuritiesHub: React.FC<SecuritiesHubProps> = ({
     }, 3500);
   };
 
+  // Helper to check if running on internal full-stack node server
+  const isInternalHost = typeof window !== 'undefined' && 
+    (window.location.hostname === 'localhost' || 
+     window.location.hostname === '127.0.0.1' || 
+     window.location.hostname.endsWith('.run.app'));
+
   // Live search effect
   useEffect(() => {
     const q = searchQuery.trim();
@@ -146,13 +152,50 @@ export const SecuritiesHub: React.FC<SecuritiesHubProps> = ({
     const timer = setTimeout(async () => {
       setIsLiveSearching(true);
       try {
-        const res = await fetch(`/api/securities/search?q=${encodeURIComponent(q)}`);
-        if (res.ok) {
-          const data = await res.json();
-          if (Array.isArray(data.quotes)) {
-            setLiveSearchResults(data.quotes);
+        let results: any[] = [];
+        const lowerQ = q.toLowerCase();
+
+        // 1. Search in-memory database of initial + extended securities
+        const allKnown = [...allSecurities, ...EXTENDED_CATALOG];
+        const localMatches = allKnown.filter(s => 
+          s.symbol.toLowerCase().includes(lowerQ) ||
+          s.name.toLowerCase().includes(lowerQ) ||
+          s.nameTh.toLowerCase().includes(lowerQ) ||
+          s.sector.toLowerCase().includes(lowerQ)
+        ).map(s => ({
+          symbol: s.symbol,
+          shortname: s.name,
+          longname: s.nameTh || s.name,
+          exchange: s.market === 'SET' ? 'SET' : 'US',
+          typeDisp: s.type === 'stock_th' ? 'Thai Equity' : (s.type === 'stock_us' ? 'US Equity' : (s.type === 'etf' ? 'ETF' : 'Mutual Fund')),
+          type: s.type,
+          sector: s.sector
+        }));
+
+        // 2. If running on internal fullstack node server, query backend
+        if (isInternalHost) {
+          try {
+            const res = await fetch(`/api/securities/search?q=${encodeURIComponent(q)}`);
+            if (res.ok) {
+              const data = await res.json();
+              if (Array.isArray(data.quotes) && data.quotes.length > 0) {
+                results = data.quotes;
+              }
+            }
+          } catch {
+            // Use local matches
           }
         }
+
+        // Combine unique results
+        const combined = [...results];
+        localMatches.forEach(lm => {
+          if (!combined.some(r => r.symbol.toUpperCase() === lm.symbol.toUpperCase())) {
+            combined.push(lm);
+          }
+        });
+
+        setLiveSearchResults(combined.slice(0, 10));
       } catch (err) {
         console.warn('Live search error:', err);
       } finally {
@@ -161,7 +204,7 @@ export const SecuritiesHub: React.FC<SecuritiesHubProps> = ({
     }, 280);
 
     return () => clearTimeout(timer);
-  }, [searchQuery]);
+  }, [searchQuery, allSecurities, isInternalHost]);
 
   // Selected Security object
   const activeSecurity = useMemo(() => {
@@ -235,37 +278,43 @@ export const SecuritiesHub: React.FC<SecuritiesHubProps> = ({
 
     setLoadingSymbol(symbol);
     try {
-      // 1. Try to fetch live quote from API
-      const res = await fetch(`/api/securities/quote?symbol=${encodeURIComponent(symbol)}`);
-      if (res.ok) {
-        const liveData = await res.json();
-        const newSec: MarketSecurity = {
-          id: `custom-${symbol.toLowerCase().replace(/[^a-z0-9]/g, '-')}-${Date.now()}`,
-          symbol: liveData.symbol || symbol,
-          name: liveData.name || symbol,
-          nameTh: liveData.nameTh || liveData.name || symbol,
-          type: liveData.type || (symbol.endsWith('.BK') ? 'stock_th' : 'stock_us'),
-          market: liveData.market || (symbol.endsWith('.BK') ? 'SET' : 'US'),
-          currency: liveData.currency || (symbol.endsWith('.BK') ? 'THB' : 'USD'),
-          price: liveData.price || 100,
-          change: liveData.change || 0,
-          changePercent: liveData.changePercent || 0,
-          high52w: liveData.high52w || liveData.price * 1.2,
-          low52w: liveData.low52w || liveData.price * 0.8,
-          sector: liveData.sector || 'การลงทุน & หุ้นสากล',
-          issuer: liveData.issuer || 'Listed Security',
-          description: liveData.description || `สินทรัพย์ ${symbol} จากตลาดการเงินโลก`,
-          charts: liveData.charts || generateRealisticCharts(liveData.price || 100, (liveData.changePercent || 0) >= 0)
-        };
+      // 1. Try to fetch live quote from API if running on internal fullstack node server
+      if (isInternalHost) {
+        try {
+          const res = await fetch(`/api/securities/quote?symbol=${encodeURIComponent(symbol)}`);
+          if (res.ok) {
+            const liveData = await res.json();
+            const newSec: MarketSecurity = {
+              id: `custom-${symbol.toLowerCase().replace(/[^a-z0-9]/g, '-')}-${Date.now()}`,
+              symbol: liveData.symbol || symbol,
+              name: liveData.name || symbol,
+              nameTh: liveData.nameTh || liveData.name || symbol,
+              type: liveData.type || (symbol.endsWith('.BK') ? 'stock_th' : 'stock_us'),
+              market: liveData.market || (symbol.endsWith('.BK') ? 'SET' : 'US'),
+              currency: liveData.currency || (symbol.endsWith('.BK') ? 'THB' : 'USD'),
+              price: liveData.price || 100,
+              change: liveData.change || 0,
+              changePercent: liveData.changePercent || 0,
+              high52w: liveData.high52w || liveData.price * 1.2,
+              low52w: liveData.low52w || liveData.price * 0.8,
+              sector: liveData.sector || 'การลงทุน & หุ้นสากล',
+              issuer: liveData.issuer || 'Listed Security',
+              description: liveData.description || `สินทรัพย์ ${symbol} จากตลาดการเงินโลก`,
+              charts: liveData.charts || generateRealisticCharts(liveData.price || 100, (liveData.changePercent || 0) >= 0)
+            };
 
-        const updated = [newSec, ...customSecurities];
-        saveCustomSecurities(updated);
-        setSelectedId(newSec.id);
-        if (pinImmediately && !pinnedIds.includes(newSec.id)) {
-          onTogglePin(newSec.id);
+            const updated = [newSec, ...customSecurities];
+            saveCustomSecurities(updated);
+            setSelectedId(newSec.id);
+            if (pinImmediately && !pinnedIds.includes(newSec.id)) {
+              onTogglePin(newSec.id);
+            }
+            showToast(`เพิ่ม & ปักหมุด "${newSec.symbol} (${newSec.currency === 'USD' ? '$' : '฿'}${newSec.price})" เรียบร้อยแล้ว 🚀`);
+            return;
+          }
+        } catch {
+          // Fall through to catalog/generator
         }
-        showToast(`เพิ่ม & ปักหมุด "${newSec.symbol} (${newSec.currency === 'USD' ? '$' : '฿'}${newSec.price})" เรียบร้อยแล้ว 🚀`);
-        return;
       }
     } catch (e) {
       console.warn('Direct live quote fetch failed, creating security with fallback data', e);
@@ -334,20 +383,51 @@ export const SecuritiesHub: React.FC<SecuritiesHubProps> = ({
 
     setIsFetchingQuoteModal(true);
     try {
-      const res = await fetch(`/api/securities/quote?symbol=${encodeURIComponent(sym)}`);
-      if (res.ok) {
-        const data = await res.json();
-        setFormName(data.name || sym);
-        setFormNameTh(data.nameTh || data.name || sym);
-        setFormPrice(data.price ? data.price.toString() : '100.00');
-        setFormCurrency(data.currency === 'THB' ? 'THB' : 'USD');
-        setFormType(data.type || (sym.endsWith('.BK') ? 'stock_th' : 'stock_us'));
-        setFormSector(data.sector || '');
-        setFormIssuer(data.issuer || '');
-        setFormDescription(data.description || '');
-        setFormChangePct(data.changePercent ? data.changePercent.toString() : '1.5');
-        showToast(`ดึงข้อมูลสดของ ${sym} สำเร็จ!`);
-      } else {
+      let autofilled = false;
+
+      // 1. If on internal server, try backend route
+      if (isInternalHost) {
+        try {
+          const res = await fetch(`/api/securities/quote?symbol=${encodeURIComponent(sym)}`);
+          if (res.ok) {
+            const data = await res.json();
+            setFormName(data.name || sym);
+            setFormNameTh(data.nameTh || data.name || sym);
+            setFormPrice(data.price ? data.price.toString() : '100.00');
+            setFormCurrency(data.currency === 'THB' ? 'THB' : 'USD');
+            setFormType(data.type || (sym.endsWith('.BK') ? 'stock_th' : 'stock_us'));
+            setFormSector(data.sector || '');
+            setFormIssuer(data.issuer || '');
+            setFormDescription(data.description || '');
+            setFormChangePct(data.changePercent ? data.changePercent.toString() : '1.5');
+            showToast(`ดึงข้อมูลสดของ ${sym} สำเร็จ!`);
+            autofilled = true;
+          }
+        } catch {
+          // Fall through
+        }
+      }
+
+      // 2. Check in-memory database of initial + extended securities
+      if (!autofilled) {
+        const allKnown = [...allSecurities, ...EXTENDED_CATALOG];
+        const match = allKnown.find(s => s.symbol.toUpperCase() === sym);
+        if (match) {
+          setFormName(match.name);
+          setFormNameTh(match.nameTh || match.name);
+          setFormPrice(match.price.toString());
+          setFormCurrency(match.currency);
+          setFormType(match.type);
+          setFormSector(match.sector);
+          setFormIssuer(match.issuer || '');
+          setFormDescription(match.description);
+          setFormChangePct(match.changePercent.toString());
+          showToast(`พบข้อมูลของ ${sym} ในฐานข้อมูล!`);
+          autofilled = true;
+        }
+      }
+
+      if (!autofilled) {
         showToast(`ไม่พบข้อมูลสดอัตโนมัติของ ${sym} คุณสามารถกรอกข้อมูลเองได้`);
       }
     } catch {
