@@ -123,6 +123,10 @@ export function CryptoHub({ usdThb }: CryptoHubProps) {
   // Live status feedback
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
+  // Real Binance Klines Cache for 100% genuine historical candlestick prices
+  const [klineCache, setKlineCache] = useState<Record<string, Record<string, { labels: string[]; prices: number[]; isReal: boolean }>>>({});
+  const [isLoadingKline, setIsLoadingKline] = useState<boolean>(false);
+
   // Chart reference
   const chartCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const chartInstanceRef = useRef<Chart | null>(null);
@@ -131,6 +135,81 @@ export function CryptoHub({ usdThb }: CryptoHubProps) {
   const activeCrypto = useMemo(() => {
     return allCryptos.find(c => c.symbol.toUpperCase() === selectedSymbol.toUpperCase()) || allCryptos[0];
   }, [allCryptos, selectedSymbol]);
+
+  // Fetch Real Binance Klines (1Y = 1M interval, 30D = 1d interval, 24H = 1h interval)
+  useEffect(() => {
+    if (!activeCrypto) return;
+    const sym = activeCrypto.symbol.toUpperCase();
+    const rawSym = activeCrypto.rawSymbol || `${sym}USDT`;
+
+    // If already cached, no need to re-fetch
+    if (klineCache[sym]?.[timeframe]) return;
+
+    let isMounted = true;
+    const fetchRealKlines = async () => {
+      try {
+        setIsLoadingKline(true);
+        let interval = '1M';
+        let limit = 12;
+        if (timeframe === '24H') {
+          interval = '1h';
+          limit = 24;
+        } else if (timeframe === '30D') {
+          interval = '1d';
+          limit = 30;
+        }
+
+        const res = await fetch(`https://api.binance.com/api/v3/klines?symbol=${rawSym}&interval=${interval}&limit=${limit}`);
+        if (!res.ok) throw new Error(`Binance klines status ${res.status}`);
+        const data = await res.json();
+
+        if (Array.isArray(data) && data.length > 0 && isMounted) {
+          const thaiMonthFmt = new Intl.DateTimeFormat('th-TH', { month: 'short' });
+          const thaiDateFmt = new Intl.DateTimeFormat('th-TH', { day: 'numeric', month: 'short' });
+          const thaiTimeFmt = new Intl.DateTimeFormat('th-TH', { hour: '2-digit', minute: '2-digit', hour12: false });
+
+          const labels: string[] = [];
+          const prices: number[] = [];
+
+          data.forEach((k: any) => {
+            const d = new Date(k[0]);
+            if (timeframe === '1Y') {
+              labels.push(thaiMonthFmt.format(d));
+            } else if (timeframe === '30D') {
+              labels.push(thaiDateFmt.format(d));
+            } else {
+              labels.push(`${thaiTimeFmt.format(d)} น.`);
+            }
+            prices.push(parseFloat(k[4])); // Closing price of candle
+          });
+
+          // Ensure the last price reflects current live price if available
+          if (prices.length > 0 && activeCrypto.price) {
+            prices[prices.length - 1] = activeCrypto.price;
+          }
+
+          setKlineCache(prev => ({
+            ...prev,
+            [sym]: {
+              ...(prev[sym] || {}),
+              [timeframe]: { labels, prices, isReal: true }
+            }
+          }));
+        }
+      } catch (err) {
+        // Fallback gracefully without throwing
+        console.info(`Historical klines for ${sym} (${timeframe}) unavailable from Binance, using calculated curve.`);
+      } finally {
+        if (isMounted) setIsLoadingKline(false);
+      }
+    };
+
+    fetchRealKlines();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [activeCrypto, timeframe, klineCache]);
 
   // Save pinned cryptos to localStorage
   useEffect(() => {
@@ -449,9 +528,11 @@ export function CryptoHub({ usdThb }: CryptoHubProps) {
     const ctx = chartCanvasRef.current.getContext('2d');
     if (!ctx) return;
 
+    const sym = activeCrypto.symbol.toUpperCase();
+    const realKlineData = klineCache[sym]?.[timeframe];
     const isPos = activeCrypto.changePercent24h >= 0;
     const generatedCharts = generateCryptoCharts(activeCrypto.price, isPos);
-    const chartData = activeCrypto.charts?.[timeframe] || generatedCharts[timeframe] || generatedCharts['24H'];
+    const chartData = realKlineData || activeCrypto.charts?.[timeframe] || generatedCharts[timeframe] || generatedCharts['24H'];
     const strokeColor = isPos ? '#10b981' : '#f43f5e';
     const gradientStart = isPos ? 'rgba(16, 185, 129, 0.35)' : 'rgba(244, 63, 94, 0.35)';
     const gradientEnd = 'rgba(15, 23, 42, 0.0)';
@@ -552,7 +633,7 @@ export function CryptoHub({ usdThb }: CryptoHubProps) {
         chartInstanceRef.current.destroy();
       }
     };
-  }, [activeCrypto, timeframe, usdThb]);
+  }, [activeCrypto, timeframe, usdThb, klineCache]);
 
   // Filtered cryptos for table
   const filteredCryptos = useMemo(() => {
@@ -863,21 +944,35 @@ export function CryptoHub({ usdThb }: CryptoHubProps) {
               <p className="text-xs text-slate-400 mt-1">{activeCrypto.nameTh} • {activeCrypto.category}</p>
             </div>
 
-            {/* Timeframe selector */}
-            <div className="flex items-center gap-1 bg-slate-900/90 p-1 rounded-xl border border-slate-700/80 self-start sm:self-auto">
-              {(['24H', '30D', '1Y'] as const).map(tf => (
-                <button
-                  key={tf}
-                  onClick={() => setTimeframe(tf)}
-                  className={`px-3 py-1 text-xs font-semibold rounded-lg transition-all cursor-pointer ${
-                    timeframe === tf
-                      ? 'bg-amber-500 text-slate-950 font-bold shadow'
-                      : 'text-slate-400 hover:text-slate-200'
-                  }`}
-                >
-                  {tf === '24H' ? '24 ชม.' : tf === '30D' ? '30 วัน' : '1 ปี (รายเดือน)'}
-                </button>
-              ))}
+            {/* Timeframe selector & Live Status */}
+            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 self-start sm:self-auto">
+              {klineCache[activeCrypto.symbol.toUpperCase()]?.[timeframe]?.isReal ? (
+                <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[11px] font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                  ข้อมูลแท่งเทียนจริงจาก Binance
+                </span>
+              ) : isLoadingKline ? (
+                <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[11px] text-amber-400 bg-amber-500/10 border border-amber-500/20">
+                  <RefreshCw className="w-3 h-3 animate-spin" />
+                  กำลังโหลดข้อมูลจริง...
+                </span>
+              ) : null}
+
+              <div className="flex items-center gap-1 bg-slate-900/90 p-1 rounded-xl border border-slate-700/80">
+                {(['24H', '30D', '1Y'] as const).map(tf => (
+                  <button
+                    key={tf}
+                    onClick={() => setTimeframe(tf)}
+                    className={`px-3 py-1 text-xs font-semibold rounded-lg transition-all cursor-pointer ${
+                      timeframe === tf
+                        ? 'bg-amber-500 text-slate-950 font-bold shadow'
+                        : 'text-slate-400 hover:text-slate-200'
+                    }`}
+                  >
+                    {tf === '24H' ? '24 ชม.' : tf === '30D' ? '30 วัน' : '1 ปี (รายเดือน)'}
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
 
