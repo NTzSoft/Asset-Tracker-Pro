@@ -164,21 +164,21 @@ export function CryptoHub({ usdThb }: CryptoHubProps) {
         const data = await res.json();
 
         if (Array.isArray(data) && data.length > 0 && isMounted) {
-          const thaiMonthFmt = new Intl.DateTimeFormat('th-TH', { month: 'short' });
-          const thaiDateFmt = new Intl.DateTimeFormat('th-TH', { day: 'numeric', month: 'short' });
-          const thaiTimeFmt = new Intl.DateTimeFormat('th-TH', { hour: '2-digit', minute: '2-digit', hour12: false });
+          const thaiMonthFmt = new Intl.DateTimeFormat('th-TH', { timeZone: 'Asia/Bangkok', month: 'short' });
+          const thaiDateFmt = new Intl.DateTimeFormat('th-TH', { timeZone: 'Asia/Bangkok', day: 'numeric', month: 'short' });
+          const thaiTimeFmt = new Intl.DateTimeFormat('th-TH', { timeZone: 'Asia/Bangkok', hour: '2-digit', minute: '2-digit', hour12: false });
 
           const labels: string[] = [];
           const prices: number[] = [];
 
-          data.forEach((k: any) => {
+          data.forEach((k: any, idx: number) => {
             const d = new Date(k[0]);
             if (timeframe === '1Y') {
-              labels.push(thaiMonthFmt.format(d));
+              labels.push(idx === data.length - 1 ? 'เดือนนี้' : thaiMonthFmt.format(d));
             } else if (timeframe === '30D') {
-              labels.push(thaiDateFmt.format(d));
+              labels.push(idx === data.length - 1 ? 'วันนี้' : thaiDateFmt.format(d));
             } else {
-              labels.push(`${thaiTimeFmt.format(d)} น.`);
+              labels.push(idx === data.length - 1 ? 'ปัจจุบัน' : `${thaiTimeFmt.format(d)} น.`);
             }
             prices.push(parseFloat(k[4])); // Closing price of candle
           });

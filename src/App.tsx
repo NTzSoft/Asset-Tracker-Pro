@@ -994,7 +994,7 @@ export default function App() {
     if (!ctx) return;
 
     const currentCrypto = data.crypto[selectedCrypto] || initialMarketData.crypto[selectedCrypto];
-    const chartData = cryptoTimeframe === '24H' ? currentCrypto.charts['24H'] : currentCrypto.charts['30D'];
+    const chartData = currentCrypto.charts[cryptoTimeframe] || currentCrypto.charts['24H'];
     const config = CRYPTO_CONFIG[selectedCrypto];
 
     const gradient = ctx.createLinearGradient(0, 0, 0, 320);
